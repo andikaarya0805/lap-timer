@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../screens/settings_screen.dart';
 import '../screens/history_screen.dart';
+import '../screens/drag_mode_select_screen.dart';
 import '../theme/app_theme.dart';
 
 class NavDrawer extends StatelessWidget {
@@ -16,7 +17,10 @@ class NavDrawer extends StatelessWidget {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                _buildMenuItem(context, Icons.speed, 'DRAG METER', true, () => Navigator.pop(context)),
+                _buildMenuItem(context, Icons.speed, 'DRAG METER', true, () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const DragModeSelectScreen()));
+                }),
                 _buildMenuItem(context, Icons.history, 'HISTORY', false, () {
                   Navigator.pop(context);
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryScreen()));

@@ -2,11 +2,12 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 
+enum RacingMode { speed, distance, custom }
+
 class TelemetryProvider with ChangeNotifier {
   double _currentSpeed = 0.0;
   double _currentDistance = 0.0; // Distance in meters
   double _topSpeed = 0.0;
-  double _personalBest = 0.0;
   final Stopwatch _stopwatch = Stopwatch();
   Timer? _speedTimer;
   Timer? _uiTimer;
@@ -15,27 +16,69 @@ class TelemetryProvider with ChangeNotifier {
   bool _useMetric = true; // KPH vs MPH
   bool _rolloutEnabled = true; // 1ft Rollout
   bool _soundAlerts = true;
+  RacingMode _activeMode = RacingMode.distance;
   
-  List<Map<String, dynamic>> _splitTimes = [
-    {'distance': '60 ft', 'time': '--:--.--', 'speed': '--', 'achieved': false, 'targetMeters': 18.288},
-    {'distance': '100 m', 'time': '--:--.--', 'speed': '--', 'achieved': false, 'targetMeters': 100.0},
-    {'distance': '200 m', 'time': '--:--.--', 'speed': '--', 'achieved': false, 'targetMeters': 200.0},
-    {'distance': '402 m', 'time': '--:--.--', 'speed': '--', 'achieved': false, 'targetMeters': 402.336},
-  ];
+  List<Map<String, dynamic>> _splitTimes = [];
 
   List<double> _speedCurve = [];
+
+  TelemetryProvider() {
+    _initializeSplits();
+  }
+
+  void _initializeSplits() {
+    if (_activeMode == RacingMode.distance) {
+      if (_useMetric) {
+        _splitTimes = [
+          {'distance': '60 ft', 'time': '--:--.--', 'speed': '--', 'achieved': false, 'targetMeters': 18.288, 'type': 'distance'},
+          {'distance': '100 m', 'time': '--:--.--', 'speed': '--', 'achieved': false, 'targetMeters': 100.0, 'type': 'distance'},
+          {'distance': '200 m', 'time': '--:--.--', 'speed': '--', 'achieved': false, 'targetMeters': 200.0, 'type': 'distance'},
+          {'distance': '402 m', 'time': '--:--.--', 'speed': '--', 'achieved': false, 'targetMeters': 402.336, 'type': 'distance'},
+        ];
+      } else {
+        _splitTimes = [
+          {'distance': '60 ft', 'time': '--:--.--', 'speed': '--', 'achieved': false, 'targetMeters': 18.288, 'type': 'distance'},
+          {'distance': '1/16 mi', 'time': '--:--.--', 'speed': '--', 'achieved': false, 'targetMeters': 100.584, 'type': 'distance'},
+          {'distance': '1/8 mi', 'time': '--:--.--', 'speed': '--', 'achieved': false, 'targetMeters': 201.168, 'type': 'distance'},
+          {'distance': '1/4 mi', 'time': '--:--.--', 'speed': '--', 'achieved': false, 'targetMeters': 402.336, 'type': 'distance'},
+        ];
+      }
+    } else if (_activeMode == RacingMode.speed) {
+      if (_useMetric) {
+        _splitTimes = [
+          {'distance': '0-60', 'time': '--:--.--', 'speed': '60', 'achieved': false, 'targetSpeed': 60.0, 'startSpeed': 0.0, 'type': 'speed'},
+          {'distance': '0-100', 'time': '--:--.--', 'speed': '100', 'achieved': false, 'targetSpeed': 100.0, 'startSpeed': 0.0, 'type': 'speed'},
+          {'distance': '100-200', 'time': '--:--.--', 'speed': '200', 'achieved': false, 'targetSpeed': 200.0, 'startSpeed': 100.0, 'type': 'speed'},
+          {'distance': '0-200', 'time': '--:--.--', 'speed': '200', 'achieved': false, 'targetSpeed': 200.0, 'startSpeed': 0.0, 'type': 'speed'},
+        ];
+      } else {
+        _splitTimes = [
+          {'distance': '0-30', 'time': '--:--.--', 'speed': '30', 'achieved': false, 'targetSpeed': 30.0, 'startSpeed': 0.0, 'type': 'speed'},
+          {'distance': '0-60', 'time': '--:--.--', 'speed': '60', 'achieved': false, 'targetSpeed': 60.0, 'startSpeed': 0.0, 'type': 'speed'},
+          {'distance': '60-130', 'time': '--:--.--', 'speed': '130', 'achieved': false, 'targetSpeed': 130.0, 'startSpeed': 60.0, 'type': 'speed'},
+          {'distance': '0-130', 'time': '--:--.--', 'speed': '130', 'achieved': false, 'targetSpeed': 130.0, 'startSpeed': 0.0, 'type': 'speed'},
+        ];
+      }
+    }
+  }
 
   double get currentSpeed => _currentSpeed;
   double get currentDistance => _currentDistance;
   double get topSpeed => _topSpeed;
-  double get personalBest => _personalBest;
   
   bool get useMetric => _useMetric;
   bool get rolloutEnabled => _rolloutEnabled;
   bool get soundAlerts => _soundAlerts;
+  RacingMode get activeMode => _activeMode;
+
+  void setMode(RacingMode mode) {
+    _activeMode = mode;
+    resetRun();
+  }
 
   void toggleUnits() {
     _useMetric = !_useMetric;
+    _initializeSplits();
     notifyListeners();
   }
 
@@ -80,26 +123,18 @@ class TelemetryProvider with ChangeNotifier {
     _currentSpeed = 0.0;
     _currentDistance = 0.0;
     _speedCurve = [0.0];
-    _splitTimes = [
-      {'distance': '60 ft', 'time': '--:--.--', 'speed': '--', 'achieved': false, 'targetMeters': 18.288},
-      {'distance': '100 m', 'time': '--:--.--', 'speed': '--', 'achieved': false, 'targetMeters': 100.0},
-      {'distance': '200 m', 'time': '--:--.--', 'speed': '--', 'achieved': false, 'targetMeters': 200.0},
-      {'distance': '402 m', 'time': '--:--.--', 'speed': '--', 'achieved': false, 'targetMeters': 402.336},
-    ];
+    _initializeSplits();
     notifyListeners();
   }
 
   void _startSimulation() {
     _speedTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       if (_currentSpeed < 320) {
-        // Accelerate
         double acceleration = 2.5 + (Random().nextDouble() * 2);
         _currentSpeed += acceleration;
         
-        // Update distance (rough estimation: average speed * time interval)
-        // currentSpeed is in KM/H, convert to m/s
         double speedInMs = _currentSpeed / 3.6;
-        _currentDistance += speedInMs * 0.1; // 0.1 seconds interval
+        _currentDistance += speedInMs * 0.1;
 
         if (_currentSpeed > _topSpeed) _topSpeed = _currentSpeed;
         
@@ -123,14 +158,24 @@ class TelemetryProvider with ChangeNotifier {
 
   void _checkSplits() {
     for (var split in _splitTimes) {
-      if (!split['achieved'] && _currentDistance >= split['targetMeters']) {
-        split['time'] = elapsedTime.substring(3); // Just SS.HH for table maybe? No, let's keep full for now or as per UI
+      if (split['achieved']) continue;
+
+      bool achieved = false;
+      if (split['type'] == 'distance') {
+        if (_currentDistance >= split['targetMeters']) {
+          achieved = true;
+        }
+      } else if (split['type'] == 'speed') {
+        double targetSpeedKmh = _useMetric ? split['targetSpeed'] : split['targetSpeed'] / 0.621371;
+        if (_currentSpeed >= targetSpeedKmh) {
+          achieved = true;
+        }
+      }
+
+      if (achieved) {
+        split['time'] = elapsedTime.substring(3);
         split['speed'] = _currentSpeed.toStringAsFixed(0);
         split['achieved'] = true;
-        
-        if (split['distance'] == '402 m') {
-          _personalBest = _stopwatch.elapsed.inMilliseconds / 1000;
-        }
       }
     }
   }

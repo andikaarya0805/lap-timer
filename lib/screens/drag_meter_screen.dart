@@ -145,15 +145,35 @@ class DragMeterScreen extends StatelessWidget {
 
   Widget _buildSplitTable(BuildContext context) {
     final telemetry = context.watch<TelemetryProvider>();
+    final isDistanceMode = telemetry.activeMode == RacingMode.distance;
+
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
-            children: const [
-              Expanded(flex: 2, child: Text('DISTANCE', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold))),
-              Expanded(child: Text('TIME', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold), textAlign: TextAlign.center)),
-              Expanded(child: Text('SPEED', style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold), textAlign: TextAlign.right)),
+            children: [
+              Expanded(
+                flex: 2,
+                child: Text(
+                  isDistanceMode ? 'DISTANCE' : 'SPEED RANGE',
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const Expanded(
+                child: Text(
+                  'TIME',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  isDistanceMode ? 'SPEED' : 'EXIT SPEED',
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 10, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.right,
+                ),
+              ),
             ],
           ),
         ),
@@ -167,6 +187,11 @@ class DragMeterScreen extends StatelessWidget {
             final achieved = split['achieved'] as bool;
             final textColor = achieved ? AppColors.accentOrange : AppColors.textSecondary;
             
+            String distanceLabel = split['distance'];
+            if (!isDistanceMode && split['type'] == 'speed') {
+              distanceLabel = '${split['distance']} ${telemetry.speedUnit}';
+            }
+
             return Container(
               padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 10),
               decoration: BoxDecoration(
@@ -177,8 +202,8 @@ class DragMeterScreen extends StatelessWidget {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      split['distance'],
-                      style: TextStyle(color: textColor, fontWeight: achieved ? FontWeight.bold : FontWeight.normal, fontSize: 14),
+                      distanceLabel,
+                      style: TextStyle(color: textColor, fontWeight: achieved ? FontWeight.bold : FontWeight.normal, fontSize: 13),
                     ),
                   ),
                   Expanded(
@@ -190,7 +215,7 @@ class DragMeterScreen extends StatelessWidget {
                   ),
                   Expanded(
                     child: Text(
-                      achieved ? '${split['speed']} KM/H' : '--',
+                      achieved ? '${split['speed']} ${telemetry.speedUnit}' : '--',
                       textAlign: TextAlign.right,
                       style: TextStyle(color: textColor, fontWeight: achieved ? FontWeight.bold : FontWeight.normal, fontSize: 14),
                     ),
